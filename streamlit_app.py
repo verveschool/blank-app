@@ -20,6 +20,24 @@ else:
 if api_key:
     genai.configure(api_key=api_key)
 
+# *** THE FIX: SANITIZER FUNCTION ***
+def sanitize_for_latin1(data):
+    """Recursively traverses a dict/list and replaces non-latin-1 chars in strings."""
+    if isinstance(data, dict):
+        return {k: sanitize_for_latin1(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_for_latin1(elem) for elem in data]
+    elif isinstance(data, str):
+        # Replace common problematic characters
+        return (data.replace('\u2013', '-')  # En dash
+                    .replace('\u2014', '--') # Em dash
+                    .replace('\u2018', "'")  # Left single quote
+                    .replace('\u2019', "'")  # Right single quote
+                    .replace('\u201c', '"')  # Left double quote
+                    .replace('\u201d', '"')) # Right double quote
+    else:
+        return data
+
 # --- 2. THE MASTER TABLE PDF ENGINE (LOCKED BLUEPRINT) ---
 class VerveTablePDF(FPDF):
     def section_header(self, title):
@@ -48,7 +66,7 @@ def generate_pdf(data):
 
     # --- NAME & CONTACT ---
     pdf.set_font('Arial', 'B', 21)
-    pdf.cell(0, 8, data.get('name', 'NAME').upper(), 0, 1, 'C')
+    pdf.cell(0, 8, data.get('name', 'NAME – BDA').upper(), 0, 1, 'C')
     pdf.ln(1)
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 6, f"{data.get('email', '')} | {data.get('phone', '')} | {data.get('location', '')}", 0, 1, 'C')
@@ -141,6 +159,7 @@ def generate_pdf(data):
     pdf.ln(inner_pad)
     pdf.rect(rect_x, start_y, rect_width, pdf.get_y() - start_y)
 
+    # Return bytes, NOT a latin-1 encoded string
     return pdf.output(dest='S').encode('latin-1')
 
 # --- 3. AI EXTRACTION LOGIC ---
@@ -148,14 +167,14 @@ def extract_data_from_cv(text):
     prompt = """
     You are an expert Resume Architect. Extract data from this resume text and format it into JSON.
     RULES:
-    1. Name: Format as "FULL NAME - BDA".
+    1. Name: Format as "FULL NAME – BDA".
     2. Professional Experience: Rewrite bullets to be "Alex Hormozi style" (Action + Metric + Result). Keep it dense. 
     3. Exclude 'VerveSchool' from the experience list (it is added automatically).
     4. Education: Only Degree, Institute, and Year.
     5. Activities: Combine Skills, Certifications, and Hobbies into a single list of high-impact bullets.
     JSON STRUCTURE:
     {
-        "name": "NAME - BDA",
+        "name": "NAME – BDA",
         "email": "email",
         "phone": "phone",
         "location": "City",
@@ -174,8 +193,7 @@ def extract_data_from_cv(text):
     }
     """
     
-    # *** THIS IS THE FIX ***
-    model = genai.GenerativeModel('gemini-flash-lite-latest')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     
     response = model.generate_content(prompt + "\n\nRESUME TEXT:\n" + text)
     json_str = response.text.replace('```json', '').replace('```', '')
@@ -185,30 +203,4 @@ def extract_data_from_cv(text):
 st.title("VerveSchool CV Builder 🚀")
 st.write("Upload a draft PDF. Get the **Master Table** Format instantly.")
 
-uploaded_file = st.file_uploader("Upload Candidate CV", type="pdf")
-
-if uploaded_file:
-    if not api_key:
-        st.error("Please enter API Key in Sidebar or Secrets!")
-    else:
-        if st.button("Generate CV"):
-            with st.spinner("Analyzing & Rebuilding..."):
-                try:
-                    reader = PyPDF2.PdfReader(uploaded_file)
-                    text = ""
-                    for page in reader.pages:
-                        text += page.extract_text()
-                    
-                    cv_data = extract_data_from_cv(text)
-                    pdf_bytes = generate_pdf(cv_data)
-                    
-                    st.success(f"CV Ready for {cv_data.get('name', 'Candidate')}")
-                    
-                    st.download_button(
-                        label="Download PDF",
-                        data=pdf_bytes,
-                        file_name=f"{cv_data.get('name', 'CV').replace(' ', '_')}.pdf",
-                        mime="application/pdf"
-                    )
-                except Exception as e:
-                    st.error(f"Error: {e}")
+uploaded_file = st.fi
