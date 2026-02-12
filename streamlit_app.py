@@ -19,12 +19,13 @@ else:
 if api_key:
     genai.configure(api_key=api_key)
 
-# --- 2. THE MASTER TABLE PDF ENGINE ---
+# --- 2. THE MASTER TABLE PDF ENGINE (LOCKED BLUEPRINT) ---
 class VerveTablePDF(FPDF):
     def section_header(self, title):
         self.set_font('Arial', 'B', 11)
         self.set_fill_color(82, 101, 109) # Dark Slate Gray
         self.set_text_color(255, 255, 255)
+        # Full width cell with border
         self.cell(0, 7, title, 1, 1, 'C', 1)
         self.set_text_color(0, 0, 0) # Reset
 
@@ -49,10 +50,10 @@ def generate_pdf(data):
 
     # --- NAME & CONTACT ---
     pdf.set_font('Arial', 'B', 21)
-    pdf.cell(0, 8, data['name'].upper(), 0, 1, 'C')
+    pdf.cell(0, 8, data.get('name', 'NAME').upper(), 0, 1, 'C')
     pdf.ln(1)
     pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 6, f"{data['email']} | {data['phone']} | {data['location']}", 0, 1, 'C')
+    pdf.cell(0, 6, f"{data.get('email', '')} | {data.get('phone', '')} | {data.get('location', '')}", 0, 1, 'C')
     pdf.ln(3)
 
     # --- ACADEMIC QUALIFICATIONS ---
@@ -72,11 +73,11 @@ def generate_pdf(data):
     pdf.set_font('Arial', '', 10)
     academic_height = 12 # 1.5x height
     
-    for edu in data['education']:
+    for edu in data.get('education', []):
         pdf.set_font('Arial', '', 10)
-        pdf.cell(w_qual, academic_height, f"  {edu['degree']}", 1)
-        pdf.cell(w_inst, academic_height, f"  {edu['institute']}", 1)
-        pdf.cell(w_year, academic_height, f"{edu['year']}", 1, 1, 'C')
+        pdf.cell(w_qual, academic_height, f"  {edu.get('degree', '')}", 1)
+        pdf.cell(w_inst, academic_height, f"  {edu.get('institute', '')}", 1)
+        pdf.cell(w_year, academic_height, f"{edu.get('year', '')}", 1, 1, 'C')
 
     # --- PROFESSIONAL EXPERIENCE ---
     pdf.section_header('PROFESSIONAL EXPERIENCE')
@@ -112,17 +113,17 @@ def generate_pdf(data):
     pdf.rect(rect_x, start_y, rect_width, pdf.get_y() - start_y)
 
     # Dynamic Roles
-    for role in data['experience']:
+    for role in data.get('experience', []):
         # Simple page break check
         if pdf.get_y() > 240: 
             pdf.add_page()
             
-        header_text = f"{role['role']} | {role['company']} | {role['dates']}"
+        header_text = f"{role.get('role', '')} | {role.get('company', '')} | {role.get('dates', '')}"
         pdf.role_header(header_text)
         start_y = pdf.get_y()
         pdf.ln(inner_pad)
         
-        for b in role['bullets']:
+        for b in role.get('bullets', []):
             pdf.set_font('Arial', '', 10)
             pdf.set_x(bullet_indent_x)
             pdf.cell(bullet_char_width, line_h, chr(149), 0, 0)
@@ -138,7 +139,7 @@ def generate_pdf(data):
     
     start_y = pdf.get_y()
     pdf.ln(inner_pad)
-    for b in data['activities']:
+    for b in data.get('activities', []):
         pdf.set_font('Arial', '', 10)
         pdf.set_x(bullet_indent_x)
         pdf.cell(bullet_char_width, line_h, chr(149), 0, 0)
@@ -182,8 +183,11 @@ def extract_data_from_cv(text):
     }
     """
     
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # SWITCHED TO GEMINI-PRO (STABLE MODEL)
+    model = genai.GenerativeModel('gemini-pro')
     response = model.generate_content(prompt + "\n\nRESUME TEXT:\n" + text)
+    
+    # Cleaning the response to ensure pure JSON
     json_str = response.text.replace('```json', '').replace('```', '')
     return json.loads(json_str)
 
@@ -208,12 +212,12 @@ if uploaded_file:
                     cv_data = extract_data_from_cv(text)
                     pdf_bytes = generate_pdf(cv_data)
                     
-                    st.success(f"CV Ready for {cv_data['name']}")
+                    st.success(f"CV Ready for {cv_data.get('name', 'Candidate')}")
                     
                     st.download_button(
                         label="Download PDF",
                         data=pdf_bytes,
-                        file_name=f"{cv_data['name'].replace(' ', '_')}.pdf",
+                        file_name=f"{cv_data.get('name', 'CV').replace(' ', '_')}.pdf",
                         mime="application/pdf"
                     )
                 except Exception as e:
