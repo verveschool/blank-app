@@ -175,7 +175,7 @@ def extract_data_from_cv(text):
     """
     
     # *** THIS IS THE FIX ***
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-2.5-pro')
     
     response = model.generate_content(prompt + "\n\nRESUME TEXT:\n" + text)
     json_str = response.text.replace('```json', '').replace('```', '')
