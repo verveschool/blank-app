@@ -9,6 +9,7 @@ import io
 st.set_page_config(page_title="VerveSchool CV Builder", layout="centered")
 
 # API KEY LOGIC: Check Secrets first, then Sidebar
+api_key = None
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
 else:
@@ -25,9 +26,8 @@ class VerveTablePDF(FPDF):
         self.set_font('Arial', 'B', 11)
         self.set_fill_color(82, 101, 109) # Dark Slate Gray
         self.set_text_color(255, 255, 255)
-        # Full width cell with border
         self.cell(0, 7, title, 1, 1, 'C', 1)
-        self.set_text_color(0, 0, 0) # Reset
+        self.set_text_color(0, 0, 0)
 
     def role_header(self, title):
         self.set_font('Arial', 'B', 11)
@@ -38,11 +38,9 @@ class VerveTablePDF(FPDF):
 def generate_pdf(data):
     pdf = VerveTablePDF()
     
-    # 28mm Top Margin (Premium Feel)
     side_margin = 12.7 
     top_margin = 28  
     pdf.set_margins(side_margin, top_margin, side_margin)
-    
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
@@ -50,7 +48,7 @@ def generate_pdf(data):
 
     # --- NAME & CONTACT ---
     pdf.set_font('Arial', 'B', 21)
-    pdf.cell(0, 8, data.get('name', 'NAME').upper(), 0, 1, 'C')
+    pdf.cell(0, 8, data.get('name', 'NAME – BDA').upper(), 0, 1, 'C')
     pdf.ln(1)
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 6, f"{data.get('email', '')} | {data.get('phone', '')} | {data.get('location', '')}", 0, 1, 'C')
@@ -65,13 +63,12 @@ def generate_pdf(data):
     w_inst = effective_content_width * 0.4
     w_year = effective_content_width * 0.2
     
-    # Header with 2-space padding
     pdf.cell(w_qual, 7, '  Qualification', 1, 0, 'L', 1)
     pdf.cell(w_inst, 7, '  Institute', 1, 0, 'L', 1)
     pdf.cell(w_year, 7, '  Year', 1, 1, 'C', 1)
     
     pdf.set_font('Arial', '', 10)
-    academic_height = 12 # 1.5x height
+    academic_height = 12
     
     for edu in data.get('education', []):
         pdf.set_font('Arial', '', 10)
@@ -90,7 +87,7 @@ def generate_pdf(data):
     rect_x = pdf.l_margin
     rect_width = effective_content_width
 
-    # Role 1: VerveSchool (Standardized)
+    # Role 1: VerveSchool
     pdf.role_header('Sales Fellow | VerveSchool Talent Fund | 2026')
     start_y = pdf.get_y()
     pdf.ln(inner_pad)
@@ -109,14 +106,11 @@ def generate_pdf(data):
         pdf.multi_cell(bullet_text_width, line_h, b)
     
     pdf.ln(inner_pad)
-    # Draw box around Verve role
     pdf.rect(rect_x, start_y, rect_width, pdf.get_y() - start_y)
 
     # Dynamic Roles
     for role in data.get('experience', []):
-        # Simple page break check
-        if pdf.get_y() > 240: 
-            pdf.add_page()
+        if pdf.get_y() > 240: pdf.add_page()
             
         header_text = f"{role.get('role', '')} | {role.get('company', '')} | {role.get('dates', '')}"
         pdf.role_header(header_text)
@@ -130,7 +124,6 @@ def generate_pdf(data):
             pdf.multi_cell(bullet_text_width, line_h, b)
             
         pdf.ln(inner_pad)
-        # Draw box
         pdf.rect(rect_x, start_y, rect_width, pdf.get_y() - start_y)
 
     # --- NOTABLE ACTIVITIES ---
@@ -154,14 +147,12 @@ def generate_pdf(data):
 def extract_data_from_cv(text):
     prompt = """
     You are an expert Resume Architect. Extract data from this resume text and format it into JSON.
-    
     RULES:
     1. Name: Format as "FULL NAME – BDA".
     2. Professional Experience: Rewrite bullets to be "Alex Hormozi style" (Action + Metric + Result). Keep it dense. 
     3. Exclude 'VerveSchool' from the experience list (it is added automatically).
     4. Education: Only Degree, Institute, and Year.
     5. Activities: Combine Skills, Certifications, and Hobbies into a single list of high-impact bullets.
-    
     JSON STRUCTURE:
     {
         "name": "NAME – BDA",
@@ -183,11 +174,10 @@ def extract_data_from_cv(text):
     }
     """
     
-    # SWITCHED TO GEMINI-PRO (STABLE MODEL)
-    model = genai.GenerativeModel('gemini-pro')
-    response = model.generate_content(prompt + "\n\nRESUME TEXT:\n" + text)
+    # *** THIS IS THE FIX ***
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     
-    # Cleaning the response to ensure pure JSON
+    response = model.generate_content(prompt + "\n\nRESUME TEXT:\n" + text)
     json_str = response.text.replace('```json', '').replace('```', '')
     return json.loads(json_str)
 
