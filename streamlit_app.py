@@ -48,7 +48,7 @@ def generate_pdf(data):
 
     # --- NAME & CONTACT ---
     pdf.set_font('Arial', 'B', 21)
-    pdf.cell(0, 8, data.get('name', 'NAME – BDA').upper(), 0, 1, 'C')
+    pdf.cell(0, 8, data.get('name', 'NAME').upper(), 0, 1, 'C')
     pdf.ln(1)
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 6, f"{data.get('email', '')} | {data.get('phone', '')} | {data.get('location', '')}", 0, 1, 'C')
@@ -148,14 +148,14 @@ def extract_data_from_cv(text):
     prompt = """
     You are an expert Resume Architect. Extract data from this resume text and format it into JSON.
     RULES:
-    1. Name: Format as "FULL NAME – BDA".
+    1. Name: Format as "FULL NAME - BDA".
     2. Professional Experience: Rewrite bullets to be "Alex Hormozi style" (Action + Metric + Result). Keep it dense. 
     3. Exclude 'VerveSchool' from the experience list (it is added automatically).
     4. Education: Only Degree, Institute, and Year.
     5. Activities: Combine Skills, Certifications, and Hobbies into a single list of high-impact bullets.
     JSON STRUCTURE:
     {
-        "name": "NAME – BDA",
+        "name": "NAME - BDA",
         "email": "email",
         "phone": "phone",
         "location": "City",
